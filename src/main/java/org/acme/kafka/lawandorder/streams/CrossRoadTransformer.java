@@ -12,13 +12,14 @@ import org.apache.kafka.streams.state.KeyValueStore;
 
 import guru.bonacci.kafka.lawandorder.model.Node;
 import guru.bonacci.kafka.lawandorder.model.NodeWrapper;
+import guru.bonacci.kafka.lawandorder.model.PathNode;
 
 class CrossRoadTransformer implements ValueTransformerWithKey<String, Node, NodeWrapper> {
 
 	private String storeName;
-	private KeyValueStore<String, Node> store;
+	private KeyValueStore<String, PathNode> store;
 	private long lastProcessedRecordTime;
-	
+
 	public CrossRoadTransformer(String storeName) {
 		this.storeName = storeName;
 	}
@@ -26,31 +27,34 @@ class CrossRoadTransformer implements ValueTransformerWithKey<String, Node, Node
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	@Override
 	public void init(final ProcessorContext contextus) {
-		contextus.schedule(Duration.ofSeconds(5), PunctuationType.WALL_CLOCK_TIME, this::punctuator);
+		contextus.schedule(Duration.ofSeconds(30), PunctuationType.WALL_CLOCK_TIME, this::punctuator);
 		store = (KeyValueStore) contextus.getStateStore(storeName);
 	}
 
 	@Override
-	public NodeWrapper transform(final String key, final Node value) {
-		NodeWrapper nodew = NodeWrapper.from(value);
+	public NodeWrapper transform(final String ignoreKey, final Node node) {
+		NodeWrapper wrap = new NodeWrapper(); 
+		wrap.pnode = PathNode.from(node);
 
 		// As with every mediocre algorithm an exceptional case for the root
-		if (value.parentId == null || value.parentId.isBlank()) {
-			nodew.parentIsProcessed = true;
-			store.put(value.id, value);
-			return nodew;
+		if (node.parentId == null || node.parentId.isBlank()) {
+			wrap.parentIsProcessed = true;
+			store.put(node.id, wrap.pnode);
+			return wrap;
 		}
 
 		// Parent at home..
-		if ((store.get(value.parentId) != null)) {
-			nodew.parentIsProcessed = true;
+		PathNode parent = store.get(node.parentId);
+		if (parent != null) {
+			wrap.parentIsProcessed = true;
+			wrap.pnode.parent = parent;
 
-			// ..leave a trace.
-			store.put(value.id, value);
+			// ..leave a trace
+			store.put(node.id, wrap.pnode);
 		}
 
 		lastProcessedRecordTime = System.currentTimeMillis();
-		return nodew;
+		return wrap;
 	}
 
 	@Override
@@ -59,17 +63,19 @@ class CrossRoadTransformer implements ValueTransformerWithKey<String, Node, Node
 	}
 
 	void punctuator(Long timestamp) {
-		Duration diff = Duration.between(Instant.ofEpochMilli(lastProcessedRecordTime), Instant.ofEpochMilli(timestamp));
+		Duration diff = Duration.between(
+				Instant.ofEpochMilli(lastProcessedRecordTime),
+				Instant.ofEpochMilli(timestamp));
 		System.out.println("Punctuator diff in seconds " + diff.getSeconds());
 
-		if (diff.getSeconds() < 2) {
+		if (diff.getSeconds() < 15) {
 			System.out.println("@" + new Date(timestamp) + " Skip state store reset");
 			return;
 		}
 
-		try (KeyValueIterator<String, Node> iter = store.all()) {
-			while (iter.hasNext()) {
-				store.put(iter.next().key, null);
+		try (KeyValueIterator<String, PathNode> it = store.all()) {
+			while (it.hasNext()) {
+				store.put(it.next().key, null);
 			}
 		}
 		System.out.println("@" + new Date(timestamp) + " Reset state store");
