@@ -11,10 +11,10 @@ import lombok.ToString;
 @RegisterForReflection
 public class NodeWrapper {
 
-    public PathNode pnode;
+    public NestedNode pnode;
     public boolean parentIsProcessed;
     
-    public static NodeWrapper from(PathNode pnode) {
+    public static NodeWrapper from(NestedNode pnode) {
     	NodeWrapper wrap = new NodeWrapper();
     	wrap.pnode = pnode;		
     	wrap.parentIsProcessed = false; //default

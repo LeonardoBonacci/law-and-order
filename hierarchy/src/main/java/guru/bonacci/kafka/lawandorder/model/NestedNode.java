@@ -9,14 +9,14 @@ import lombok.ToString;
 @NoArgsConstructor
 @AllArgsConstructor
 @RegisterForReflection
-public class PathNode {
+public class NestedNode {
 
     public String id;
     public String parentId;
-    public PathNode parent;
+    public NestedNode parent;
     
-    public static PathNode from(Node node) {
-    	PathNode pn = new PathNode();
+    public static NestedNode from(Node node) {
+    	NestedNode pn = new NestedNode();
     	pn.id = node.id;		
     	pn.parentId = node.parentId;		
     	pn.parent = null;

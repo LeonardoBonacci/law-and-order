@@ -1,4 +1,4 @@
-package org.acme.kafka.lawandorder.streams;
+package guru.bonacci.kafka.lawandorder.streams;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.inject.Produces;
@@ -18,7 +18,7 @@ import org.apache.kafka.streams.state.Stores;
 
 import guru.bonacci.kafka.lawandorder.model.Node;
 import guru.bonacci.kafka.lawandorder.model.NodeWrapper;
-import guru.bonacci.kafka.lawandorder.model.PathNode;
+import guru.bonacci.kafka.lawandorder.model.NestedNode;
 import guru.bonacci.kafka.serialization.JacksonSerde;
 
 @ApplicationScoped
@@ -34,14 +34,14 @@ public class TopologyProducer {
     public Topology buildTopology() {
         StreamsBuilder builder = new StreamsBuilder();
         Serde<Node> nodeSerde = JacksonSerde.of(Node.class);
-        Serde<PathNode> pnodeSerde = JacksonSerde.of(PathNode.class);
+        Serde<NestedNode> nnodeSerde = JacksonSerde.of(NestedNode.class);
 
         KeyValueBytesStoreSupplier storeSupplier = Stores.inMemoryKeyValueStore(STORE);
 
-        StoreBuilder<KeyValueStore<String, PathNode>> storeBuilder = Stores.keyValueStoreBuilder(
+        StoreBuilder<KeyValueStore<String, NestedNode>> storeBuilder = Stores.keyValueStoreBuilder(
         		storeSupplier,
                 Serdes.String(),
-                pnodeSerde);
+                nnodeSerde);
 
         builder.addStateStore(storeBuilder);
 
@@ -53,10 +53,10 @@ public class TopologyProducer {
 		KStream<String, NodeWrapper>[] branched = unordered
 							.transformValues(() -> new CrossRoadTransformer(STORE), STORE)
 							.branch(moveOnPredicate, loopPredicate);
-		// move on
+		// move on nested
 		branched[0]
 			.mapValues((wrap) -> wrap.pnode)
-        	.to(OUTPUT_TOPIC, Produced.with(Serdes.String(), pnodeSerde));
+        	.to(OUTPUT_TOPIC, Produced.with(Serdes.String(), nnodeSerde));
 
 		// loop back
         branched[1]

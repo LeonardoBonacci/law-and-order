@@ -1,4 +1,4 @@
-package org.acme.kafka.lawandorder.streams;
+package guru.bonacci.kafka.lawandorder.streams;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -12,12 +12,12 @@ import org.apache.kafka.streams.state.KeyValueStore;
 
 import guru.bonacci.kafka.lawandorder.model.Node;
 import guru.bonacci.kafka.lawandorder.model.NodeWrapper;
-import guru.bonacci.kafka.lawandorder.model.PathNode;
+import guru.bonacci.kafka.lawandorder.model.NestedNode;
 
 class CrossRoadTransformer implements ValueTransformerWithKey<String, Node, NodeWrapper> {
 
 	private String storeName;
-	private KeyValueStore<String, PathNode> store;
+	private KeyValueStore<String, NestedNode> store;
 	private long lastProcessedRecordTime;
 
 	public CrossRoadTransformer(String storeName) {
@@ -34,7 +34,7 @@ class CrossRoadTransformer implements ValueTransformerWithKey<String, Node, Node
 	@Override
 	public NodeWrapper transform(final String ignoreKey, final Node node) {
 		NodeWrapper wrap = new NodeWrapper(); 
-		wrap.pnode = PathNode.from(node);
+		wrap.pnode = NestedNode.from(node);
 
 		// As with every mediocre algorithm an exceptional case for the root
 		if (node.parentId == null || node.parentId.isBlank()) {
@@ -44,7 +44,7 @@ class CrossRoadTransformer implements ValueTransformerWithKey<String, Node, Node
 		}
 
 		// Parent at home..
-		PathNode parent = store.get(node.parentId);
+		NestedNode parent = store.get(node.parentId);
 		if (parent != null) {
 			wrap.parentIsProcessed = true;
 			wrap.pnode.parent = parent;
@@ -73,7 +73,7 @@ class CrossRoadTransformer implements ValueTransformerWithKey<String, Node, Node
 			return;
 		}
 
-		try (KeyValueIterator<String, PathNode> it = store.all()) {
+		try (KeyValueIterator<String, NestedNode> it = store.all()) {
 			while (it.hasNext()) {
 				store.put(it.next().key, null);
 			}
