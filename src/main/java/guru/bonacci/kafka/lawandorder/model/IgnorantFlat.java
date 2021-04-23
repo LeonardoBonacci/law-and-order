@@ -1,16 +1,15 @@
 package guru.bonacci.kafka.lawandorder.model;
 
 import lombok.AllArgsConstructor;
-import lombok.Builder;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 @ToString
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Rich {
+public class IgnorantFlat {
 
-    public PoorAndFlat paf;
-    public NestedNode nn;
+    public String id;
+    @Getter public String fkId;
 }

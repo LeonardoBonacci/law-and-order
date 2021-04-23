@@ -12,13 +12,19 @@ import org.apache.kafka.streams.state.KeyValueStore;
 
 import guru.bonacci.kafka.lawandorder.model.Node;
 import guru.bonacci.kafka.lawandorder.model.NodeWrapper;
+import lombok.extern.slf4j.Slf4j;
 import guru.bonacci.kafka.lawandorder.model.NestedNode;
 
+@Slf4j
 class CrossRoadTransformer implements ValueTransformerWithKey<String, Node, NodeWrapper> {
 
 	private String storeName;
 	private KeyValueStore<String, NestedNode> store;
 	private long lastProcessedRecordTime;
+
+	public CrossRoadTransformer(String storeName) {
+		this.storeName = storeName;
+	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	@Override
@@ -62,10 +68,10 @@ class CrossRoadTransformer implements ValueTransformerWithKey<String, Node, Node
 		Duration diff = Duration.between(
 				Instant.ofEpochMilli(lastProcessedRecordTime),
 				Instant.ofEpochMilli(timestamp));
-		System.out.println("Punctuator diff in seconds " + diff.getSeconds());
+		log.warn("Punctuator diff in seconds {}", diff.getSeconds());
 
 		if (diff.getSeconds() < 15) {
-			System.out.println("@" + new Date(timestamp) + " Skip state store reset");
+			log.info("@{} Skip state store reset", new Date(timestamp));
 			return;
 		}
 
@@ -74,6 +80,6 @@ class CrossRoadTransformer implements ValueTransformerWithKey<String, Node, Node
 				store.put(it.next().key, null);
 			}
 		}
-		System.out.println("@" + new Date(timestamp) + " Reset state store");
+		log.info("@{} Reset state store", new Date(timestamp));
 	}
 }

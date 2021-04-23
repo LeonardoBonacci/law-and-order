@@ -1,12 +1,14 @@
 ./kafka-console-producer \
      --broker-list localhost:9092 \
-     --topic unorderedT \
+     --topic unordered \
      --property "parse.key=true" \
      --property "key.separator=:" 
 11:{"id":"11", "parentId":"1"}
 1:{"id":"1", "parentId":null}
 21:{"id":"21", "parentId":"2"}
 2:{"id":"2", "parentId":null}
+33:{"id":"33", "parentId":"3"}
+3:{"id":"3", "parentId":null}
 
 ./kafka-console-consumer \
      --bootstrap-server localhost:9092 \
@@ -18,7 +20,7 @@
 
 ./kafka-console-producer \
      --broker-list localhost:9092 \
-     --topic poor \
+     --topic ignorant \
      --property "parse.key=true" \
      --property "key.separator=:" 
 foo:{"id":"foo", "fkIds":[ "11", "21"  ]}
@@ -26,7 +28,7 @@ foo:{"id":"foo", "fkIds":[ "21", "11"  ]}
 
 ./kafka-console-consumer \
      --bootstrap-server localhost:9092 \
-     --topic rich \
+     --topic enlightened \
      --from-beginning \
      --property print.key=true
 

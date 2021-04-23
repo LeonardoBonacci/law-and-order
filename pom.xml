@@ -16,6 +16,11 @@
 
 	<dependencies>
 		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-simple</artifactId>
+			<version>1.7.30</version>
+		</dependency>
+		<dependency>
 			<groupId>org.apache.kafka</groupId>
 			<artifactId>kafka-streams</artifactId>
 			<version>2.8.0</version>
@@ -30,6 +35,11 @@
 			<groupId>guru.bonacci.kafka</groupId>
 			<artifactId>client-serialization</artifactId>
 			<version>1.0.0</version>
+		</dependency>
+		<dependency>
+			<groupId>com.google.guava</groupId>
+			<artifactId>guava</artifactId>
+			<version>20.0</version>
 		</dependency>
 	</dependencies>
 

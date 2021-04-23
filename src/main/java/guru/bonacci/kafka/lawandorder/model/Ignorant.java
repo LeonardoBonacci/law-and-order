@@ -10,14 +10,14 @@ import lombok.ToString;
 @ToString
 @NoArgsConstructor
 @AllArgsConstructor
-public class Poor {
+public class Ignorant {
 
     public String id;
     public List<String> fkIds;
     
-    public List<PoorAndFlat> toPaf() {
+    public List<IgnorantFlat> flat() {
     	return fkIds.stream()
-    				.map(fk -> new PoorAndFlat(id, fk))
+    				.map(fk -> new IgnorantFlat(id, fk))
     				.collect(Collectors.toList());
     }
 }
