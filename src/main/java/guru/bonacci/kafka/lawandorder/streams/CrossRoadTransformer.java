@@ -20,10 +20,6 @@ class CrossRoadTransformer implements ValueTransformerWithKey<String, Node, Node
 	private KeyValueStore<String, NestedNode> store;
 	private long lastProcessedRecordTime;
 
-	public CrossRoadTransformer(String storeName) {
-		this.storeName = storeName;
-	}
-
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	@Override
 	public void init(final ProcessorContext contextus) {
