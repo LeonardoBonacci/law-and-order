@@ -70,7 +70,7 @@ public class ProductAppl {
 
 		igTable.join( nnTable, 
 					   IgnorantFlat::getFkId, 
-					   (ig, n) -> Enlightened.builder().ig(ig).nn(n).build())
+					   Enlightened::new)
 				.toStream()
 				.peek((k,v) -> log.info("{}<enl>{}", k, v))
 				.filterNot((k,v) -> v == null)
