@@ -10,10 +10,10 @@ import org.apache.kafka.streams.processor.PunctuationType;
 import org.apache.kafka.streams.state.KeyValueIterator;
 import org.apache.kafka.streams.state.KeyValueStore;
 
+import guru.bonacci.kafka.lawandorder.model.NestedNode;
 import guru.bonacci.kafka.lawandorder.model.Node;
 import guru.bonacci.kafka.lawandorder.model.NodeWrapper;
 import lombok.extern.slf4j.Slf4j;
-import guru.bonacci.kafka.lawandorder.model.NestedNode;
 
 @Slf4j
 class CrossRoadTransformer implements ValueTransformerWithKey<String, Node, NodeWrapper> {

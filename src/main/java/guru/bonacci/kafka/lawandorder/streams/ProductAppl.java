@@ -1,8 +1,12 @@
 package guru.bonacci.kafka.lawandorder.streams;
 
+import static guru.bonacci.kafka.lawandorder.domain.Schemas.IGNORANT_FLAT_VALUE_SERDE;
+import static guru.bonacci.kafka.lawandorder.domain.Schemas.Topics.ENLIGHTENED;
+import static guru.bonacci.kafka.lawandorder.domain.Schemas.Topics.IGNORANT;
+import static guru.bonacci.kafka.lawandorder.domain.Schemas.Topics.ORDERED;
+
 import java.util.Properties;
 
-import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.KafkaStreams;
@@ -15,19 +19,15 @@ import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.state.KeyValueStore;
 
+import guru.bonacci.kafka.lawandorder.domain.Schemas;
 import guru.bonacci.kafka.lawandorder.model.Enlightened;
 import guru.bonacci.kafka.lawandorder.model.Ignorant;
 import guru.bonacci.kafka.lawandorder.model.IgnorantFlat;
 import guru.bonacci.kafka.lawandorder.model.NestedNode;
-import guru.bonacci.kafka.serialization.JacksonSerde;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class ProductAppl {
-
-	static final String ORDERED_TOPIC = "ordered";
-	static final String IGNORANT_TOPIC = "ignorant"; // lacking knowledge or awareness in general; uneducated or unsophisticated.
-	static final String ENLIGHTENED_TOPIC = "enlightened"; // having or showing a rational, modern, and well-informed outlook.
 
 	public static void main(final String[] args) {
 		final KafkaStreams streams = buildStream();
@@ -36,8 +36,12 @@ public class ProductAppl {
 		Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
 	}
 
+	
 	// https://www.youtube.com/watch?v=pQiYt58F_9k&ab_channel=KatiBreuer-Topic
 	static KafkaStreams buildStream() {
+		final String schemaRegistryUrl = null;
+		Schemas.configureSerdesWithSchemaRegistryUrl(schemaRegistryUrl);
+		
 		final Properties config = new Properties();
 
 		config.put(StreamsConfig.APPLICATION_ID_CONFIG, "hot-app");
@@ -52,21 +56,16 @@ public class ProductAppl {
 		// --------------------------------------------------------------------
         StreamsBuilder builder = new StreamsBuilder();
         
-		Serde<NestedNode> nnSerde = JacksonSerde.of(NestedNode.class);
-		Serde<Ignorant> pSerde = JacksonSerde.of(Ignorant.class);
-		Serde<IgnorantFlat> pafSerde = JacksonSerde.of(IgnorantFlat.class);
-		Serde<Enlightened> rSerde = JacksonSerde.of(Enlightened.class);
-		
 		KTable<String, NestedNode> nnTable = 
-			builder.table(ORDERED_TOPIC, Consumed.with(Serdes.String(), nnSerde));
+			builder.table(ORDERED.name(), Consumed.with(ORDERED.keySerde(), ORDERED.valueSerde()));
 
 		KTable<String, IgnorantFlat> igTable = 
-			builder.stream(IGNORANT_TOPIC, Consumed.with(Serdes.String(), pSerde))
+			builder.stream(IGNORANT.name(), Consumed.with(IGNORANT.keySerde(), IGNORANT.valueSerde()))
 				.flatMapValues(Ignorant::flat)
 				.peek((k,v) -> log.info("{}<ig>{}", k, v))
 				.toTable(Materialized.<String, IgnorantFlat, KeyValueStore<Bytes, byte[]>>as("the-ignorant-schoolmaster")
 	                        .withKeySerde(Serdes.String())
-	                        .withValueSerde(pafSerde));
+	                        .withValueSerde(IGNORANT_FLAT_VALUE_SERDE));
 
 		igTable.join( nnTable, 
 					   IgnorantFlat::getFkId, 
@@ -74,7 +73,7 @@ public class ProductAppl {
 				.toStream()
 				.peek((k,v) -> log.info("{}<enl>{}", k, v))
 				.filterNot((k,v) -> v == null)
-				.to(ENLIGHTENED_TOPIC, Produced.with(Serdes.String(), rSerde));
+				.to(ENLIGHTENED.name(), Produced.with(ENLIGHTENED.keySerde(), ENLIGHTENED.valueSerde()));
 		// --------------------------------------------------------------------
 
 		return new KafkaStreams(builder.build(), config);

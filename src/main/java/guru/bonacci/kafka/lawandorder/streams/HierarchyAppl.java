@@ -1,10 +1,13 @@
 package guru.bonacci.kafka.lawandorder.streams;
 
+import static guru.bonacci.kafka.lawandorder.domain.Schemas.Topics.DIGEST;
+import static guru.bonacci.kafka.lawandorder.domain.Schemas.Topics.ORDERED;
+import static guru.bonacci.kafka.lawandorder.domain.Schemas.Topics.UNORDERED;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 import java.util.function.Consumer;
 
-import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.KafkaStreams;
@@ -30,6 +33,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.hash.Hashing;
 
+import guru.bonacci.kafka.lawandorder.domain.Schemas;
 import guru.bonacci.kafka.lawandorder.model.NestedNode;
 import guru.bonacci.kafka.lawandorder.model.Node;
 import guru.bonacci.kafka.lawandorder.model.NodeWrapper;
@@ -39,28 +43,29 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class HierarchyAppl {
 
-	static final String DIGEST_STORE = "digest-store";
-	static final String NODE_STORE = "nn-store";
+	static final String DIGEST_STORE_NAME = "digest-store";
+	static final String NODE_STORE_NAME = "nn-store";
 	
-	static final String DIGEST_TOPIC = "digested";
-	static final String UNORDERED_TOPIC = "unordered";
-	static final String ORDERED_TOPIC = "ordered";
-
 	// https://dzone.com/articles/why-static-bad-and-how-avoid
 	static ObjectMapper aum = new ObjectMapper();
 
 	static ReadOnlyKeyValueStore<String, String> digestStore;
 
+	
 	public static void main(final String[] args) {
+		final String schemaRegistryUrl = null;
+		Schemas.configureSerdesWithSchemaRegistryUrl(schemaRegistryUrl);
+		
 		final KafkaStreams streams = buildStream();
 		streams.start();
 
 		QueryableStoreType<ReadOnlyKeyValueStore<String, String>> queryableStoreType = QueryableStoreTypes.keyValueStore();
-		digestStore = streams.store(StoreQueryParameters.fromNameAndType(DIGEST_STORE, queryableStoreType).enableStaleStores());
+		digestStore = streams.store(StoreQueryParameters.fromNameAndType(DIGEST_STORE_NAME, queryableStoreType).enableStaleStores());
 
 		Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
 	}
 
+	
 	static KafkaStreams buildStream() {
 		final Properties config = new Properties();
 
@@ -77,19 +82,15 @@ public class HierarchyAppl {
         StreamsBuilder builder = new StreamsBuilder();
         
         // When all else fails, we can whip the horse's eyes And make them sleep, and cry.
-		builder.table(DIGEST_TOPIC, Consumed.with(Serdes.String(), Serdes.String()),
-				Materialized.<String, String, KeyValueStore<Bytes, byte[]>>as(DIGEST_STORE).withCachingDisabled());
+		builder.table(DIGEST.name(), Consumed.with(DIGEST.keySerde(), DIGEST.valueSerde()),
+				Materialized.<String, String, KeyValueStore<Bytes, byte[]>>as(DIGEST_STORE_NAME).withCachingDisabled());
         
-
-        Serde<Node> nodeSerde = JacksonSerde.of(Node.class);
-        Serde<NestedNode> nnodeSerde = JacksonSerde.of(NestedNode.class);
-
-        KeyValueBytesStoreSupplier storeSupplier = Stores.inMemoryKeyValueStore(NODE_STORE);
+        KeyValueBytesStoreSupplier storeSupplier = Stores.inMemoryKeyValueStore(NODE_STORE_NAME);
 
         StoreBuilder<KeyValueStore<String, NestedNode>> storeBuilder = Stores.keyValueStoreBuilder(
         		storeSupplier,
                 Serdes.String(),
-                nnodeSerde);
+                JacksonSerde.of(NestedNode.class));
 
         builder.addStateStore(storeBuilder);
 
@@ -97,7 +98,7 @@ public class HierarchyAppl {
 		Predicate<String, NodeWrapper> loopPredicate = (k, v) -> !moveOnPredicate.test(k, v);
 
 		KStream<String, Node> unordered = 
-			builder.stream(UNORDERED_TOPIC, Consumed.with(Serdes.String(), nodeSerde));
+			builder.stream(UNORDERED.name(), Consumed.with(UNORDERED.keySerde(), UNORDERED.valueSerde()));
 		unordered.peek((k,v) -> log.info(v.toString()));
 
         Predicate<String, NestedNode> hasChangedPredicate = (k, v) -> !hashMe(v).equals(digestStore.get(k));
@@ -107,16 +108,16 @@ public class HierarchyAppl {
 						.filter(hasChangedPredicate)
 			;
 			
-			andOn.to(ORDERED_TOPIC, Produced.with(Serdes.String(), nnodeSerde));
-			andOn.mapValues(HierarchyAppl::hashMe).to(DIGEST_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
+			andOn.to(ORDERED.name(), Produced.with(ORDERED.keySerde(), ORDERED.valueSerde()));
+			andOn.mapValues(HierarchyAppl::hashMe).to(DIGEST.name(), Produced.with(DIGEST.keySerde(), DIGEST.valueSerde()));
 		};
 		
 		Consumer<KStream<String, NodeWrapper>> back = loopBack -> 
 			loopBack.mapValues((wrap) -> wrap.pnode.toNode())
-				  .to(UNORDERED_TOPIC, Produced.with(Serdes.String(), nodeSerde));
+				  .to(UNORDERED.name(), Produced.with(UNORDERED.keySerde(), UNORDERED.valueSerde()));
 		
 		unordered
-			.transformValues(() -> new CrossRoadTransformer(NODE_STORE), NODE_STORE)
+			.transformValues(() -> new CrossRoadTransformer(NODE_STORE_NAME), NODE_STORE_NAME)
 			.split()
 			.branch(moveOnPredicate, Branched.withConsumer(forward))
 			.branch(loopPredicate, Branched.withConsumer(back));
